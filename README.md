@@ -1,265 +1,734 @@
 # runc
 
-[![Build Status](https://travis-ci.org/opencontainers/runc.svg?branch=master)](https://travis-ci.org/opencontainers/runc)
-[![Go Report Card](https://goreportcard.com/badge/github.com/opencontainers/runc)](https://goreportcard.com/report/github.com/opencontainers/runc)
-[![GoDoc](https://godoc.org/github.com/opencontainers/runc?status.svg)](https://godoc.org/github.com/opencontainers/runc)
+docker 运行在 android 系统上
 
-## Introduction
+系统：android-7.1.1
+内核：3.10-nougat
+设备：nexus-9
 
-`runc` is a CLI tool for spawning and running containers according to the OCI specification.
+## v1 namespace_ipc
 
-## Releases
+`./runc_logTofile --root /storage/run run container1`
 
-`runc` depends on and tracks the [runtime-spec](https://github.com/opencontainers/runtime-spec) repository.
-We will try to make sure that `runc` and the OCI specification major versions stay in lockstep.
-This means that `runc` 1.0.0 should implement the 1.0 version of the specification.
+```
+container_linux.go:337: starting container process caused "process_linux.go:335: 
+running exec setns process for init caused \"exit status 46\""
 
-You can find official releases of `runc` on the [release](https://github.com/opencontainers/runc/releases) page.
-
-### Security
-
-If you wish to report a security issue, please disclose the issue responsibly
-to security@opencontainers.org.
-
-## Building
-
-`runc` currently supports the Linux platform with various architecture support.
-It must be built with Go version 1.6 or higher in order for some features to function properly.
-
-In order to enable seccomp support you will need to install `libseccomp` on your platform.
-> e.g. `libseccomp-devel` for CentOS, or `libseccomp-dev` for Ubuntu
-
-Otherwise, if you do not want to build `runc` with seccomp support you can add `BUILDTAGS=""` when running make.
-
-```bash
-# create a 'github.com/opencontainers' in your GOPATH/src
-cd github.com/opencontainers
-git clone https://github.com/opencontainers/runc
-cd runc
-
-make
-sudo make install
 ```
 
-You can also use `go get` to install to your `GOPATH`, assuming that you have a `github.com` parent folder already created under `src`:
 
-```bash
-go get github.com/opencontainers/runc
-cd $GOPATH/src/github.com/opencontainers/runc
-make
-sudo make install
+libcontainer/process_linux.go : 342
+
+```go
+if err := p.execSetns(); err != nil {
+	return newSystemErrorWithCause(err, "running exec setns process for init")
+}
 ```
 
-`runc` will be installed to `/usr/local/sbin/runc` on your system.
+libcontainer/process_linux.go : 244
 
-
-#### Build Tags
-
-`runc` supports optional build tags for compiling support of various features.
-To add build tags to the make option the `BUILDTAGS` variable must be set.
-
-```bash
-make BUILDTAGS='seccomp apparmor'
+```go
+func (p *initProcess) execSetns() error {
+        status, err := p.cmd.Process.Wait()
+        if err != nil {
+                p.cmd.Wait()
+                fmt.Printf("1\n")
+                return err
+        }
+        if !status.Success() {
+                p.cmd.Wait()
+                fmt.Printf("2\n")
+                return &exec.ExitError{ProcessState: status}
+        }
+	···
+	···
 ```
 
-| Build Tag | Feature                            | Dependency  |
-|-----------|------------------------------------|-------------|
-| seccomp   | Syscall filtering                  | libseccomp  |
-| selinux   | selinux process and mount labeling | <none>      |
-| apparmor  | apparmor profile support           | <none>      |
-| ambient   | ambient capability support         | kernel 4.3  |
+libcontainer/process_linux.go : 284
 
-
-### Running the test suite
-
-`runc` currently supports running its test suite via Docker.
-To run the suite just type `make test`.
-
-```bash
-make test
+```go
+func (p *initProcess) start() error {
+        defer p.parentPipe.Close()
+		fmt.Printf("omni : %+v\n", p.cmd)
+        err := p.cmd.Start()
+        ···
+        ···
 ```
 
-There are additional make targets for running the tests outside of a container but this is not recommended as the tests are written with the expectation that they can write and remove anywhere.
-
-You can run a specific test case by setting the `TESTFLAGS` variable.
 
 ```bash
-# make test TESTFLAGS="-run=SomeTestFunction"
+omni : &{Path:/proc/self/exe Args:[./runc_logTofile init] Env:[GOMAXPROCS= 
+_LIBCONTAINER_CONSOLE=3 _LIBCONTAINER_INITPIPE=4 _LIBCONTAINER_FIFOFD=5 
+_LIBCONTAINER_INITTYPE=standard] Dir:/data/test/runc/rootfs Stdin:<nil> Stdout:
+<nil> Stderr:<nil> ExtraFiles:[0x4420074090 0x44200740a0 0x44200740b0] 
+SysProcAttr:0x44200ac090 Process:<nil> ProcessState:<nil> ctx:<nil> lookPathErr:<nil> 
+finished:false childFiles:[] closeAfterStart:[] closeAfterWait:[] goroutine:[] 
+errch:<nil> waitDone:<nil>}
+
 ```
 
-You can run a specific integration test by setting the `TESTPATH` variable.
+
+```go
+func (p *initProcess) start() (err error) {
+        defer p.parentPipe.Close()
+        //omni
+        stdLogFile, err:=os.Create("/storage/omni_log")
+        if err!=nil {
+                fmt.Printf("omni create log file failed")
+                return err
+        }
+        p.cmd.Stdout=stdLogFile
+        p.cmd.Stderr=stdLogFile
+        //omni
+        
+        err = p.cmd.Start()
+        
+        //omni
+        fmt.Printf("omni after start: %+v\n", p.cmd)
+        //omni
+        p.childPipe.Close()
+        
+```
 
 ```bash
-# make test TESTPATH="/checkpoint.bats"
+omni : &{Path:/proc/self/exe Args:[./runc_logTofile init] Env:[GOMAXPROCS= 
+_LIBCONTAINER_CONSOLE=3 _LIBCONTAINER_INITPIPE=4 _LIBCONTAINER_FIFOFD=5 
+_LIBCONTAINER_INITTYPE=standard] Dir:/data/test/runc/rootfs Stdin:<nil> Stdout:
+0x4420074008 Stderr:0x4420074010 ExtraFiles:[0x4420074090 0x44200740a0 0x44200740b0] 
+SysProcAttr:0x44200ac090 Process:<nil> ProcessState:<nil> ctx:<nil> lookPathErr:<nil> 
+finished:false childFiles:[] closeAfterStart:[] closeAfterWait:[] goroutine:[] 
+errch:<nil> waitDone:<nil>}
+
+nsenter: failed to unshare namespaces: m
+
 ```
 
-You can run a test in your proxy environment by setting `DOCKER_BUILD_PROXY` and `DOCKER_RUN_PROXY` variables.
+libcontainer/nsenter/nsexec.c : 875
 
-```bash
-# make test DOCKER_BUILD_PROXY="--build-arg HTTP_PROXY=http://yourproxy/" DOCKER_RUN_PROXY="-e HTTP_PROXY=http://yourproxy/"
+```c
+if (unshare(config.cloneflags) < 0)
+                                bail("failed to unshare namespaces");
+
 ```
 
-### Dependencies Management
+libcontainer/nsenter/nsexec.c : 132
 
-`runc` uses [vndr](https://github.com/LK4D4/vndr) for dependencies management.
-Please refer to [vndr](https://github.com/LK4D4/vndr) for how to add or update
-new dependencies.
-
-## Using runc
-
-### Creating an OCI Bundle
-
-In order to use runc you must have your container in the format of an OCI bundle.
-If you have Docker installed you can use its `export` method to acquire a root filesystem from an existing Docker container.
-
-```bash
-# create the top most bundle directory
-mkdir /mycontainer
-cd /mycontainer
-
-# create the rootfs directory
-mkdir rootfs
-
-# export busybox via Docker into the rootfs directory
-docker export $(docker create busybox) | tar -C rootfs -xvf -
+```c
+#define bail(fmt, ...)                                                          \
+        do {                                                                    \
+                int ret = __COUNTER__ + 1;                                      \
+                fprintf(stderr, "nsenter: " fmt ": %m\n", ##__VA_ARGS__);       \
+                if (syncfd >= 0) {                                              \
+                        enum sync_t s = SYNC_ERR;                               \
+                        if (write(syncfd, &s, sizeof(s)) != sizeof(s))          \
+                                fprintf(stderr, "nsenter: failed: write(s)");   \
+                        if (write(syncfd, &ret, sizeof(ret)) != sizeof(ret))    \
+                                fprintf(stderr, "nsenter: failed: write(ret)"); \
+                }                                                               \
+                exit(ret);                                                      \
+        } while(0)
 ```
 
-After a root filesystem is populated you just generate a spec in the format of a `config.json` file inside your bundle.
-`runc` provides a `spec` command to generate a base template spec that you are then able to edit.
-To find features and documentation for fields in the spec please refer to the [specs](https://github.com/opencontainers/runtime-spec) repository.
 
-```bash
-runc spec
+: 544
+
+```c
+void nsexec(void)
+{
+		···
+		···
+        pipenum = initpipe();
+        if (pipenum == -1)
+                return;
+
+        /* Parse all of the netlink configuration. */
+        nl_parse(pipenum, &config);
+        ···
+        ···
+}
 ```
 
-### Running Containers
+: 333
 
-Assuming you have an OCI bundle from the previous step you can execute the container in two different ways.
+```c
+static int initpipe(void)
+{
+        int pipenum;
+        char *initpipe, *endptr;
 
-The first way is to use the convenience command `run` that will handle creating, starting, and deleting the container after it exits.
+        initpipe = getenv("_LIBCONTAINER_INITPIPE");
+        if (initpipe == NULL || *initpipe == '\0')
+                return -1;
 
-```bash
-# run as root
-cd /mycontainer
-runc run mycontainerid
+        pipenum = strtol(initpipe, &endptr, 10);
+        if (*endptr != '\0')
+                bail("unable to parse _LIBCONTAINER_INITPIPE");
+
+        return pipenum;
+}
 ```
 
-If you used the unmodified `runc spec` template this should give you a `sh` session inside the container.
+libcontainer/container_linux.go: 475
 
-The second way to start a container is using the specs lifecycle operations.
-This gives you more power over how the container is created and managed while it is running.
-This will also launch the container in the background so you will have to edit the `config.json` to remove the `terminal` setting for the simple examples here.
-Your process field in the `config.json` should look like this below with `"terminal": false` and `"args": ["sleep", "5"]`.
+```go
+cmd.ExtraFiles = append(cmd.ExtraFiles, childPipe)
+cmd.Env = append(cmd.Env,
+	fmt.Sprintf("_LIBCONTAINER_INITPIPE=%d", stdioFdCount+len(cmd.ExtraFiles)-1),)
+```
+
+libcontainer/container_linux.go  : 431
+
+```go
+func (c *linuxContainer) newParentProcess(p *Process) (parentProcess, error) {
+        parentPipe, childPipe, err := utils.NewSockPair("init")
+                if err != nil {
+                return nil, newSystemErrorWithCause(err, "creating new init pipe")
+        }
+        cmd, err := c.commandTemplate(p, childPipe)
+        if err != nil {
+                return nil, newSystemErrorWithCause(err, "creating new command template")
+        }
+        if !p.Init {
+                return c.newSetnsProcess(p, cmd, parentPipe, childPipe)
+        }
+
+        // We only set up fifoFd if we're not doing a `runc exec`. The historic
+        // reason for this is that previously we would pass a dirfd that allowed
+        // for container rootfs escape (and not doing it in `runc exec` avoided
+        // that problem), but we no longer do that. However, there's no need to do
+        // this for `runc exec` so we just keep it this way to be safe.
+        if err := c.includeExecFifo(cmd); err != nil {
+                return nil, newSystemErrorWithCause(err, "including execfifo in cmd.Exec setup")
+        }
+        return c.newInitProcess(p, cmd, parentPipe, childPipe)
+}
+```
+
+```go
+func (c *linuxContainer) newSetnsProcess(p *Process, cmd *exec.Cmd, parentPipe, childPipe *os.File) (*setnsProcess, error) {
+        cmd.Env = append(cmd.Env, "_LIBCONTAINER_INITTYPE="+string(initSetns))
+        state, err := c.currentState()
+        if err != nil {
+                return nil, newSystemErrorWithCause(err, "getting container's current state")
+        }
+        // for setns process, we don't have to set cloneflags as the process namespaces
+        // will only be set via setns syscall
+        data, err := c.bootstrapData(0, state.NamespacePaths)
+        if err != nil {
+                return nil, err
+        }
+        return &setnsProcess{
+                cmd:             cmd,
+                cgroupPaths:     c.cgroupManager.GetPaths(),
+                rootlessCgroups: c.config.RootlessCgroups,
+                intelRdtPath:    state.IntelRdtPath,
+                childPipe:       childPipe,
+                parentPipe:      parentPipe,
+                config:          c.newInitConfig(p),
+                process:         p,
+                bootstrapData:   data,
+        }, nil
+}
+```
+
+libcontainer/process_linux.go : 330
+
+```go
+func (p *initProcess) start() error {
+		···
+		···
+        if _, err := io.Copy(p.parentPipe, p.bootstrapData); err != nil {
+                return newSystemErrorWithCause(err, "copying bootstrap data to pipe")
+        }
+        ···
+        ···
+}
+```
+
+libcontainer/container_linux.go
+
+```go
+508
+
+data, err := c.bootstrapData(c.config.Namespaces.CloneFlags(), nsMaps)
+
+534
+
+data, err := c.bootstrapData(0, state.NamespacePaths)
+```
+
+libcontainer/container_linux.go : 486
+
+```go
+func (c *linuxContainer) newInitProcess(p *Process, cmd *exec.Cmd, parentPipe, childPipe *os.File) (*initProcess, error) {
+        cmd.Env = append(cmd.Env, "_LIBCONTAINER_INITTYPE="+string(initStandard))
+        nsMaps := make(map[configs.NamespaceType]string)
+        for _, ns := range c.config.Namespaces {
+                if ns.Path != "" {
+                        nsMaps[ns.Type] = ns.Path
+                }
+        }
+        _, sharePidns := nsMaps[configs.NEWPID]
+        data, err := c.bootstrapData(c.config.Namespaces.CloneFlags(), nsMaps)
+        if err != nil {
+                return nil, err
+        }
+        return &initProcess{
+                cmd:             cmd,
+                childPipe:       childPipe,
+                parentPipe:      parentPipe,
+                manager:         c.cgroupManager,
+                intelRdtManager: c.intelRdtManager,
+                config:          c.newInitConfig(p),
+                container:       c,
+                process:         p,
+                bootstrapData:   data,
+                sharePidns:      sharePidns,
+        }, nil
+}
+
+```
 
 
-```json
-        "process": {
-                "terminal": false,
-                "user": {
-                        "uid": 0,
-                        "gid": 0
+
+libcontainer/specconv : 144
+
+```go
+···
+···
+{
+  Type: "ipc",
+},
+···
+···
+```
+
+
+
+
+libcontainer/factory_linux.go : 283
+
+```go
+func (l *LinuxFactory) StartInitialization() (err error) {
+	···
+	···
+	envFifoFd      = os.Getenv("_LIBCONTAINER_FIFOFD")
+	fifofd, err = strconv.Atoi(envFifoFd)
+	i, err := newContainerInit(it, pipe, consoleSocket, fifofd)
+	···
+	···
+}
+```
+
+## v2 mqueue
+
+```
+container_linux.go:337: starting container process caused 
+"process_linux.go:436: container init caused \"rootfs_linux.go:58: 
+mounting \\\"mqueue\\\" to rootfs \\\"/data/test/runc/rootfs\\\" at \
+\\"/dev/mqueue\\\" caused \\\"no such device\\\"\""
+```
+
+libcontainer/rootfs_linux.go : 185
+
+```go
+func mountToRootfs(m *configs.Mount, rootfs, mountLabel string) error {
+        var (
+                dest = m.Destination
+        )
+        if !strings.HasPrefix(dest, rootfs) {
+                dest = filepath.Join(rootfs, dest)
+        }
+
+        switch m.Device {
+        case "proc", "sysfs":
+                if err := os.MkdirAll(dest, 0755); err != nil {
+                        return err
+                }
+                // Selinux kernels do not support labeling of /proc or /sys
+                return mountPropagate(m, rootfs, "")
+        case "mqueue":
+                // omni
+                fmt.Printf("\nomni : mountToRootfs dest=%s\n", dest)
+                // omni
+                if err := os.MkdirAll(dest, 0755); err != nil {
+                        return err
+                }
+                if err := mountPropagate(m, rootfs, mountLabel); err != nil {
+                        // older kernels do not support labeling of /dev/mqueue
+                        if err := mountPropagate(m, rootfs, ""); err != nil {
+                                return err
+                        }
+                        return label.SetFileLabel(dest, mountLabel)
+                }
+                return nil
+        case "tmpfs":
+                copyUp := m.Extensions&configs.EXT_COPYUP == configs.EXT_COPYUP
+                tmpDir := ""
+                stat, err := os.Stat(dest)
+                if err != nil {
+                        if err := os.MkdirAll(dest, 0755); err != nil {
+                                return err
+                        }
+                }
+                if copyUp {
+                        tmpdir, err := prepareTmp("/tmp")
+                        if err != nil {
+                                return newSystemErrorWithCause(err, "tmpcopyup: failed to setup tmpdir")
+                        }
+                        defer cleanupTmp(tmpdir)
+                        tmpDir, err = ioutil.TempDir(tmpdir, "runctmpdir")
+                        if err != nil {
+                                return newSystemErrorWithCause(err, "tmpcopyup: failed to create tmpdir")
+                        }
+                        defer os.RemoveAll(tmpDir)
+                        m.Destination = tmpDir
+                }
+                if err := mountPropagate(m, rootfs, mountLabel); err != nil {
+                        return err
+                }
+                if copyUp {
+                        if err := fileutils.CopyDirectory(dest, tmpDir); err != nil {
+                                errMsg := fmt.Errorf("tmpcopyup: failed to copy %s to %s: %v", dest, tmpDir, err)
+                                if err1 := unix.Unmount(tmpDir, unix.MNT_DETACH); err1 != nil {
+                                        return newSystemErrorWithCausef(err1, "tmpcopyup: %v: failed to unmount", errMsg)
+                                }
+                                return errMsg
+                        }
+                        }
+                        if err := unix.Mount(tmpDir, dest, "", unix.MS_MOVE, ""); err != nil {
+                                errMsg := fmt.Errorf("tmpcopyup: failed to move mount %s to %s: %v", tmpDir, dest, err)
+                                if err1 := unix.Unmount(tmpDir, unix.MNT_DETACH); err1 != nil {
+                                        return newSystemErrorWithCausef(err1, "tmpcopyup: %v: failed to unmount", errMsg)
+                                }
+                                return errMsg
+                        }
+                }
+                if stat != nil {
+                        if err = os.Chmod(dest, stat.Mode()); err != nil {
+                                return err
+                        }
+                }
+                return nil
+        case "bind":
+                stat, err := os.Stat(m.Source)
+                if err != nil {
+                        // error out if the source of a bind mount does not exist as we will be
+                        // unable to bind anything to it.
+                        return err
+                }
+                // ensure that the destination of the bind mount is resolved of symlinks at mount time because
+                // any previous mounts can invalidate the next mount's destination.
+                // this can happen when a user specifies mounts within other mounts to cause breakouts or other
+                // evil stuff to try to escape the container's rootfs.
+                if dest, err = securejoin.SecureJoin(rootfs, m.Destination); err != nil {
+                        return err
+                }
+                if err := checkMountDestination(rootfs, dest); err != nil {
+                        return err
+                }
+                // update the mount with the correct dest after symlinks are resolved.
+                m.Destination = dest
+                if err := createIfNotExists(dest, stat.IsDir()); err != nil {
+                        return err
+                }
+                if err := mountPropagate(m, rootfs, mountLabel); err != nil {
+                        return err
+                }
+                // bind mount won't change mount options, we need remount to make mount options effective.
+                // first check that we have non-default options required before attempting a remount
+                if m.Flags&^(unix.MS_REC|unix.MS_REMOUNT|unix.MS_BIND) != 0 {
+                        // only remount if unique mount options are set
+                        if err := remount(m, rootfs); err != nil {
+                                return err
+                        }
+                }
+
+                if m.Relabel != "" {
+                        if err := label.Validate(m.Relabel); err != nil {
+                                return err
+                        }
+                        shared := label.IsShared(m.Relabel)
+                        if err := label.Relabel(m.Source, mountLabel, shared); err != nil {
+                                return err
+                        }
+                }
+        case "cgroup":
+                binds, err := getCgroupMounts(m)
+                if err != nil {
+                        return err
+                }
+                var merged []string
+                for _, b := range binds {
+                        ss := filepath.Base(b.Destination)
+                        if strings.Contains(ss, ",") {
+                                merged = append(merged, ss)
+                        }
+                }
+                tmpfs := &configs.Mount{
+                        Source:           "tmpfs",
+                        Device:           "tmpfs",
+                        Destination:      m.Destination,
+                        Flags:            defaultMountFlags,
+                        Data:             "mode=755",
+                        PropagationFlags: m.PropagationFlags,
+                }
+                if err := mountToRootfs(tmpfs, rootfs, mountLabel); err != nil {
+                        return err
+                }
+                for _, b := range binds {
+                        if err := mountToRootfs(b, rootfs, mountLabel); err != nil {
+                                return err
+                        }
+                }
+                for _, mc := range merged {
+                        for _, ss := range strings.Split(mc, ",") {
+                                // symlink(2) is very dumb, it will just shove the path into
+                                // the link and doesn't do any checks or relative path
+                                // conversion. Also, don't error out if the cgroup already exists.
+                                if err := os.Symlink(mc, filepath.Join(rootfs, m.Destination, ss)); err != nil && !os.IsExist(err) {
+                                        return err
+                                }
+                        }
+                }
+                if m.Flags&unix.MS_RDONLY != 0 {
+                        // remount cgroup root as readonly
+                        mcgrouproot := &configs.Mount{
+                                Source:      m.Destination,
+                                Device:      "bind",
+                                Destination: m.Destination,
+                                Flags:       defaultMountFlags | unix.MS_RDONLY | unix.MS_BIND,
+                        }
+                        if err := remount(mcgrouproot, rootfs); err != nil {
+                                return err
+                        }
+                }
+        default:
+                // ensure that the destination of the mount is resolved of symlinks at mount time because
+                // any previous mounts can invalidate the next mount's destination.
+                // this can happen when a user specifies mounts within other mounts to cause breakouts or other
+                // evil stuff to try to escape the container's rootfs.
+                var err error
+                if dest, err = securejoin.SecureJoin(rootfs, m.Destination); err != nil {
+                        return err
+                }
+                if err := checkMountDestination(rootfs, dest); err != nil {
+                        return err
+                }
+                // update the mount with the correct dest after symlinks are resolved.
+                m.Destination = dest
+                if err := os.MkdirAll(dest, 0755); err != nil {
+                        return err
+                }
+                return mountPropagate(m, rootfs, mountLabel)
+        }
+        return nil
+}
+
+```
+
+
+libcontainer/rootfs_linux.go  : 842
+
+```go
+func mountPropagate(m *configs.Mount, rootfs string, mountLabel string) error {
+        var (
+                dest  = m.Destination
+                data  = label.FormatMountLabel(m.Data, mountLabel)
+                flags = m.Flags
+        )
+        if libcontainerUtils.CleanPath(dest) == "/dev" {
+                flags &= ^unix.MS_RDONLY
+        }
+
+        copyUp := m.Extensions&configs.EXT_COPYUP == configs.EXT_COPYUP
+        if !(copyUp || strings.HasPrefix(dest, rootfs)) {
+                dest = filepath.Join(rootfs, dest)
+        }
+        // omni
+        fmt.Printf("\n\nomni : mountPropagate dest=%s, data=%s, flags=%v, m=%v\n\n", dest, data, flags, m)
+        // omni
+        if err := unix.Mount(m.Source, dest, m.Device, uintptr(flags), data); err != nil {
+                return err
+        }
+        for _, pflag := range m.PropagationFlags {
+                if err := unix.Mount("", dest, "", uintptr(pflag), ""); err != nil {
+                        return err
+                }
+        }
+        return nil
+}
+
+```
+
+```
+omni : mountPropagate dest=/data/test/runc/rootfs/dev/mqueue, data=, 
+flags=14, m=&{mqueue /dev/mqueue mqueue 14 []   0 [] []}
+```
+
+```yaml
+        "mounts": [
+                {
+                        "destination": "/proc",
+                        "type": "proc",
+                        "source": "proc"
                 },
-                "args": [
-                        "sleep", "5"
-                ],
-                "env": [
-                        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin",
-                        "TERM=xterm"
-                ],
-                "cwd": "/",
-                "capabilities": {
-                        "bounding": [
-                                "CAP_AUDIT_WRITE",
-                                "CAP_KILL",
-                                "CAP_NET_BIND_SERVICE"
-                        ],
-                        "effective": [
-                                "CAP_AUDIT_WRITE",
-                                "CAP_KILL",
-                                "CAP_NET_BIND_SERVICE"
-                        ],
-                        "inheritable": [
-                                "CAP_AUDIT_WRITE",
-                                "CAP_KILL",
-                                "CAP_NET_BIND_SERVICE"
-                        ],
-                        "permitted": [
-                                "CAP_AUDIT_WRITE",
-                                "CAP_KILL",
-                                "CAP_NET_BIND_SERVICE"
-                        ],
-                        "ambient": [
-                                "CAP_AUDIT_WRITE",
-                                "CAP_KILL",
-                                "CAP_NET_BIND_SERVICE"
+                {
+                        "destination": "/dev",
+                        "type": "tmpfs",
+                        "source": "tmpfs",
+                        "options": [
+                                "nosuid",
+                                "strictatime",
+                                "mode=755",
+                                "size=65536k"
                         ]
                 },
-                "rlimits": [
-                        {
-                                "type": "RLIMIT_NOFILE",
-                                "hard": 1024,
-                                "soft": 1024
-                        }
-                ],
-                "noNewPrivileges": true
-        },
+                {
+                        "destination": "/dev/pts",
+                        "type": "devpts",
+                        "source": "devpts",
+                        "options": [
+                                "nosuid",
+                                "noexec",
+                                "newinstance",
+                                "ptmxmode=0666",
+                                "mode=0620",
+                                "gid=5"
+                        ]
+                },
+                {
+                        "destination": "/dev/shm",
+                        "type": "tmpfs",
+                        "source": "shm",
+                        "options": [
+                                "nosuid",
+                                "noexec",
+                                "nodev",
+                                "mode=1777",
+                                "size=65536k"
+                        ]
+                },
+                {
+                        "destination": "/dev/mqueue",
+                        "type": "mqueue",
+                        "source": "mqueue",
+                        "options": [
+                                "nosuid",
+                                "noexec",
+                                "nodev"
+                        ]
+                },
+                {
+                        "destination": "/sys",
+                        "type": "sysfs",
+                        "source": "sysfs",
+                        "options": [
+                                "nosuid",
+                                "noexec",
+                                "nodev",
+                                "ro"
+                        ]
+                },
+                {
+                        "destination": "/sys/fs/cgroup",
+                        "type": "cgroup",
+                        "source": "cgroup",
+                        "options": [
+                                "nosuid",
+                                "noexec",
+                                "nodev",
+                                "relatime",
+                                "ro"
+                        ]
+                }
+        ],
+
 ```
 
-Now we can go through the lifecycle operations in your shell.
+## v3 pivotRoot
 
-
-```bash
-# run as root
-cd /mycontainer
-runc create mycontainerid
-
-# view the container is created and in the "created" state
-runc list
-
-# start the process inside the container
-runc start mycontainerid
-
-# after 5 seconds view that the container has exited and is now in the stopped state
-runc list
-
-# now delete the container
-runc delete mycontainerid
+```
+container_linux.go:337: starting container process caused 
+"process_linux.go:436: container init caused \"rootfs_linux.go:109: 
+jailing process inside rootfs caused \\\"pivot_root invalid argument\
+\\"\""
 ```
 
-This allows higher level systems to augment the containers creation logic with setup of various settings after the container is created and/or before it is deleted. For example, the container's network stack is commonly set up after `create` but before `start`.
+libcontainer/rootfs_linux.go : 675
 
-#### Rootless containers
-`runc` has the ability to run containers without root privileges. This is called `rootless`. You need to pass some parameters to `runc` in order to run rootless containers. See below and compare with the previous version. Run the following commands as an ordinary user:
-```bash
-# Same as the first example
-mkdir ~/mycontainer
-cd ~/mycontainer
-mkdir rootfs
-docker export $(docker create busybox) | tar -C rootfs -xvf -
+```go
+// pivotRoot will call pivot_root such that rootfs becomes the new root
+// filesystem, and everything else is cleaned up.
+func pivotRoot(rootfs string) error {
+        // While the documentation may claim otherwise, pivot_root(".", ".") is
+        // actually valid. What this results in is / being the new root but
+        // /proc/self/cwd being the old root. Since we can play around with the cwd
+        // with pivot_root this allows us to pivot without creating directories in
+        // the rootfs. Shout-outs to the LXC developers for giving us this idea.
 
-# The --rootless parameter instructs runc spec to generate a configuration for a rootless container, which will allow you to run the container as a non-root user.
-runc spec --rootless
+        fmt.Printf("omni : pivotRoot rootfs=%s\n", rootfs)
 
-# The --root parameter tells runc where to store the container state. It must be writable by the user.
-runc --root /tmp/runc run mycontainerid
+        oldroot, err := unix.Open("/", unix.O_DIRECTORY|unix.O_RDONLY, 0)
+        if err != nil {
+                return err
+        }
+        defer unix.Close(oldroot)
+
+        newroot, err := unix.Open(rootfs, unix.O_DIRECTORY|unix.O_RDONLY, 0)
+        if err != nil {
+                return err
+        }
+        defer unix.Close(newroot)
+
+        // Change to the new root so that the pivot_root actually acts on it.
+        if err := unix.Fchdir(newroot); err != nil {
+                return err
+        }
+
+        if err := unix.PivotRoot(".", "."); err != nil {
+                return fmt.Errorf("pivot_root %s", err)
+        }
+        // Currently our "." is oldroot (according to the current kernel code).
+        // However, purely for safety, we will fchdir(oldroot) since there isn't
+        // really any guarantee from the kernel what /proc/self/cwd will be after a
+        // pivot_root(2).
+
+        if err := unix.Fchdir(oldroot); err != nil {
+                return err
+        }
+
+        // Make oldroot rslave to make sure our unmounts don't propagate to the
+        // host (and thus bork the machine). We don't use rprivate because this is
+        // known to cause issues due to races where we still have a reference to a
+        // mount while a process in the host namespace are trying to operate on
+        // something they think has no mounts (devicemapper in particular).
+        if err := unix.Mount("", ".", "", unix.MS_SLAVE|unix.MS_REC, ""); err != nil {
+                return err
+        }
+        // Preform the unmount. MNT_DETACH allows us to unmount /proc/self/cwd.
+        if err := unix.Unmount(".", unix.MNT_DETACH); err != nil {
+                return err
+        }
+
+        // Switch back to our shiny new root.
+        if err := unix.Chdir("/"); err != nil {
+                return fmt.Errorf("chdir / %s", err)
+        }
+        return nil
+}
+
 ```
 
-#### Supervisors
 
-`runc` can be used with process supervisors and init systems to ensure that containers are restarted when they exit.
-An example systemd unit file looks something like this.
 
-```systemd
-[Unit]
-Description=Start My Container
 
-[Service]
-Type=forking
-ExecStart=/usr/local/sbin/runc run -d --pid-file /run/mycontainerid.pid mycontainerid
-ExecStopPost=/usr/local/sbin/runc delete mycontainerid
-WorkingDirectory=/mycontainer
-PIDFile=/run/mycontainerid.pid
+## issue
 
-[Install]
-WantedBy=multi-user.target
+libcontainer/configs/validate/validator.go : 135
+
+```go
+return fmt.Errorf("sysctl %q is not allowed in the hosts ipc namespace", s)
 ```
+
+
