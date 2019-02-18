@@ -11,7 +11,7 @@ const (
 	NEWPID  NamespaceType = "NEWPID"
 	NEWNS   NamespaceType = "NEWNS"
 	NEWUTS  NamespaceType = "NEWUTS"
-	NEWIPC  NamespaceType = "NEWIPC"
+	// omni NEWIPC  NamespaceType = "NEWIPC"
 	NEWUSER NamespaceType = "NEWUSER"
 )
 
@@ -29,8 +29,8 @@ func NsName(ns NamespaceType) string {
 		return "mnt"
 	case NEWPID:
 		return "pid"
-	case NEWIPC:
-		return "ipc"
+	// omni case NEWIPC:
+	//	return "ipc"
 	case NEWUSER:
 		return "user"
 	case NEWUTS:
@@ -63,7 +63,7 @@ func IsNamespaceSupported(ns NamespaceType) bool {
 func NamespaceTypes() []NamespaceType {
 	return []NamespaceType{
 		NEWUSER, // Keep user NS always first, don't move it.
-		NEWIPC,
+		//omni NEWIPC,
 		NEWUTS,
 		NEWNET,
 		NEWPID,

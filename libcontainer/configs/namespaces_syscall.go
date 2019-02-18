@@ -12,7 +12,9 @@ var namespaceInfo = map[NamespaceType]int{
 	NEWNET:  unix.CLONE_NEWNET,
 	NEWNS:   unix.CLONE_NEWNS,
 	NEWUSER: unix.CLONE_NEWUSER,
+	/**omni
 	NEWIPC:  unix.CLONE_NEWIPC,
+	**/
 	NEWUTS:  unix.CLONE_NEWUTS,
 	NEWPID:  unix.CLONE_NEWPID,
 }

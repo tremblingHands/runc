@@ -198,6 +198,9 @@ func mountToRootfs(m *configs.Mount, rootfs, mountLabel string) error {
 		// Selinux kernels do not support labeling of /proc or /sys
 		return mountPropagate(m, rootfs, "")
 	case "mqueue":
+		// omni
+		fmt.Printf("\nomni : mountToRootfs dest=%s\n", dest)
+		// omni
 		if err := os.MkdirAll(dest, 0755); err != nil {
 			return err
 		}
@@ -676,6 +679,8 @@ func pivotRoot(rootfs string) error {
 	// with pivot_root this allows us to pivot without creating directories in
 	// the rootfs. Shout-outs to the LXC developers for giving us this idea.
 
+	fmt.Printf("omni : pivotRoot rootfs=%s\n", rootfs)
+
 	oldroot, err := unix.Open("/", unix.O_DIRECTORY|unix.O_RDONLY, 0)
 	if err != nil {
 		return err
@@ -850,11 +855,12 @@ func mountPropagate(m *configs.Mount, rootfs string, mountLabel string) error {
 	if !(copyUp || strings.HasPrefix(dest, rootfs)) {
 		dest = filepath.Join(rootfs, dest)
 	}
-
+	// omni
+	fmt.Printf("\n\nomni : mountPropagate dest=%s, data=%s, flags=%v, m=%v\n\n", dest, data, flags, m)
+	// omni
 	if err := unix.Mount(m.Source, dest, m.Device, uintptr(flags), data); err != nil {
 		return err
 	}
-
 	for _, pflag := range m.PropagationFlags {
 		if err := unix.Mount("", dest, "", uintptr(pflag), ""); err != nil {
 			return err

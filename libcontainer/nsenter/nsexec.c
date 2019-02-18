@@ -518,7 +518,9 @@ void join_namespaces(char *nslist)
 
 	for (i = 0; i < num; i++) {
 		struct namespace_t ns = namespaces[i];
-
+    	        //omni
+                printf("omni : nsexec.c %d %s %s", ns.ns, ns.type, ns.path);
+                //omni
 		if (setns(ns.fd, ns.ns) < 0)
 			bail("failed to setns to %s", ns.path);
 
@@ -869,6 +871,12 @@ void nsexec(void)
 			 * clone(CLONE_PARENT | CLONE_NEWPID) was broken, so we'll just do
 			 * it the long way.
 			 */
+
+			// omni
+			fprintf(stderr, "\nomni cloneflags : %u\n", config.cloneflags);
+			// omni
+
+
 			if (unshare(config.cloneflags) < 0)
 				bail("failed to unshare namespaces");
 

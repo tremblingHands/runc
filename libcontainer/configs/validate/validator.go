@@ -133,11 +133,13 @@ func (v *ConfigValidator) sysctl(config *configs.Config) error {
 
 	for s := range config.Sysctl {
 		if validSysctlMap[s] || strings.HasPrefix(s, "fs.mqueue.") {
+			/** omni
 			if config.Namespaces.Contains(configs.NEWIPC) {
 				continue
 			} else {
 				return fmt.Errorf("sysctl %q is not allowed in the hosts ipc namespace", s)
 			}
+			**/
 		}
 		if strings.HasPrefix(s, "net.") {
 			if config.Namespaces.Contains(configs.NEWNET) {

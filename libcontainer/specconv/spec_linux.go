@@ -26,7 +26,7 @@ var namespaceMapping = map[specs.LinuxNamespaceType]configs.NamespaceType{
 	specs.NetworkNamespace: configs.NEWNET,
 	specs.MountNamespace:   configs.NEWNS,
 	specs.UserNamespace:    configs.NEWUSER,
-	specs.IPCNamespace:     configs.NEWIPC,
+	// omni specs.IPCNamespace:     configs.NEWIPC,
 	specs.UTSNamespace:     configs.NEWUTS,
 }
 

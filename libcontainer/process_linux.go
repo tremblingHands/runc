@@ -73,7 +73,19 @@ func (p *setnsProcess) signal(sig os.Signal) error {
 
 func (p *setnsProcess) start() (err error) {
 	defer p.parentPipe.Close()
+	/**
+	stdLogFile, err:=os.Create("/storage/omni_log")
+	if err!=nil {
+		fmt.Printf("omni create log file failed")
+		return err
+	}
+	**/
+	p.cmd.Stdout=os.Stdout
+	p.cmd.Stderr=os.Stderr
 	err = p.cmd.Start()
+	//omni
+	fmt.Printf("omni setnsProcess start: %+v\n", p.cmd)
+	//omni
 	p.childPipe.Close()
 	if err != nil {
 		return newSystemErrorWithCause(err, "starting setns process")
@@ -234,21 +246,25 @@ func (p *initProcess) execSetns() error {
 	status, err := p.cmd.Process.Wait()
 	if err != nil {
 		p.cmd.Wait()
+		fmt.Printf("1\n")
 		return err
 	}
 	if !status.Success() {
 		p.cmd.Wait()
+		fmt.Printf("2\n")
 		return &exec.ExitError{ProcessState: status}
 	}
 	var pid *pid
 	if err := json.NewDecoder(p.parentPipe).Decode(&pid); err != nil {
 		p.cmd.Wait()
+		fmt.Printf("3\n")
 		return err
 	}
 
 	// Clean up the zombie parent process
 	firstChildProcess, err := os.FindProcess(pid.PidFirstChild)
 	if err != nil {
+		fmt.Printf("4\n")
 		return err
 	}
 
@@ -257,16 +273,33 @@ func (p *initProcess) execSetns() error {
 
 	process, err := os.FindProcess(pid.Pid)
 	if err != nil {
+		fmt.Printf("5\n")
 		return err
 	}
 	p.cmd.Process = process
 	p.process.ops = p
+	fmt.Printf("6\n")
 	return nil
 }
 
 func (p *initProcess) start() error {
 	defer p.parentPipe.Close()
+
+	/**stdLogFile, err:=os.Create("/storage/omni_log")
+        if err!=nil {
+                fmt.Printf("omni create log file failed")
+                return err
+        }
+	**/
+        //p.cmd.Stdout=stdLogFile
+        //p.cmd.Stderr=stdLogFile
+        p.cmd.Stdout=os.Stdout
+        p.cmd.Stderr=os.Stderr
+
 	err := p.cmd.Start()
+	//omni
+	fmt.Printf("omni initProcess start: %+v\n", p.cmd)
+	//omni
 	p.process.ops = p
 	p.childPipe.Close()
 	if err != nil {
