@@ -4,6 +4,8 @@ package console
 
 import (
 	"os"
+	"fmt"
+	"io/ioutil"
 
 	"golang.org/x/sys/unix"
 )
@@ -13,6 +15,13 @@ import (
 // with the path to the pty slave is returned as the second
 func NewPty() (Console, string, error) {
 	f, err := os.OpenFile("/dev/ptmx", unix.O_RDWR|unix.O_NOCTTY|unix.O_CLOEXEC, 0)
+	fmt.Printf("omni_0306:NewPty\n")
+
+	files, _ := ioutil.ReadDir("/dev/")
+	for _, f := range files {
+		fmt.Printf("omni_0306 haha: %v , %v\n", f.Name(), f.Mode())
+    	}
+
 	if err != nil {
 		return nil, "", err
 	}
