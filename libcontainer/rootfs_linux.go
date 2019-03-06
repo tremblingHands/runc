@@ -42,6 +42,9 @@ func needsSetupDev(config *configs.Config) bool {
 // finalizeRootfs after this function to finish setting up the rootfs.
 func prepareRootfs(pipe io.ReadWriter, iConfig *initConfig) (err error) {
 	config := iConfig.Config
+	//omni
+	fmt.Printf("new_omni pivot_root config : %+v\n", config)
+
 	if err := prepareRoot(config); err != nil {
 		return newSystemErrorWithCause(err, "preparing rootfs")
 	}
@@ -49,16 +52,25 @@ func prepareRootfs(pipe io.ReadWriter, iConfig *initConfig) (err error) {
 	setupDev := needsSetupDev(config)
 	for _, m := range config.Mounts {
 		for _, precmd := range m.PremountCmds {
+			//omni
+			fmt.Printf("new_omni premount command : %+v\n", precmd)
+
 			if err := mountCmd(precmd); err != nil {
 				return newSystemErrorWithCause(err, "running premount command")
 			}
 		}
 
 		if err := mountToRootfs(m, config.Rootfs, config.MountLabel); err != nil {
+                        //omni
+                        fmt.Printf("new_moni mounting %q to rootfs %q at %q", m.Source, config.Rootfs, m.Destination)
+
 			return newSystemErrorWithCausef(err, "mounting %q to rootfs %q at %q", m.Source, config.Rootfs, m.Destination)
 		}
 
 		for _, postcmd := range m.PostmountCmds {
+			//omni
+			fmt.Printf("new_omni postmount command : %+v\n", postcmd)
+
 			if err := mountCmd(postcmd); err != nil {
 				return newSystemErrorWithCause(err, "running postmount command")
 			}
@@ -97,7 +109,7 @@ func prepareRootfs(pipe io.ReadWriter, iConfig *initConfig) (err error) {
 	if err := unix.Chdir(config.Rootfs); err != nil {
 		return newSystemErrorWithCausef(err, "changing dir to %q", config.Rootfs)
 	}
-
+	/*
 	if config.NoPivotRoot {
 		err = msMoveRoot(config.Rootfs)
 	} else if config.Namespaces.Contains(configs.NEWNS) {
@@ -105,6 +117,14 @@ func prepareRootfs(pipe io.ReadWriter, iConfig *initConfig) (err error) {
 	} else {
 		err = chroot(config.Rootfs)
 	}
+	*/
+        if config.NoPivotRoot {
+                err = msMoveRoot(config.Rootfs)
+        }else {
+                err = chroot(config.Rootfs)
+        }
+	fmt.Printf("\n 0306_omni:chroot succeed\n")
+	
 	if err != nil {
 		return newSystemErrorWithCause(err, "jailing process inside rootfs")
 	}
@@ -624,6 +644,8 @@ func rootfsParentMountPrivate(rootfs string) error {
 			break
 		}
 	}
+	//omni
+	fmt.Printf("new_omni : parent root parentMount=%v, optionalOpts=%v\n", parentMount, optionalOpts)
 
 	// Make parent mount PRIVATE if it was shared. It is needed for two
 	// reasons. First of all pivot_root() will fail if parent mount is
@@ -662,9 +684,11 @@ func setReadonly() error {
 func setupPtmx(config *configs.Config) error {
 	ptmx := filepath.Join(config.Rootfs, "dev/ptmx")
 	if err := os.Remove(ptmx); err != nil && !os.IsNotExist(err) {
+		fmt.Printf("omni_0306 : remove ptmx\n", )
 		return err
 	}
 	if err := os.Symlink("pts/ptmx", ptmx); err != nil {
+		fmt.Printf("omni_0306 : Symlink ptmx\n", )
 		return fmt.Errorf("symlink dev ptmx %s", err)
 	}
 	return nil
@@ -730,6 +754,62 @@ func pivotRoot(rootfs string) error {
 	}
 	return nil
 }
+
+/*
+
+// pivotRoot will call pivot_root such that rootfs becomes the new root
+// filesystem, and everything else is cleaned up.
+func pivotRoot(rootfs string) error {
+	// While the documentation may claim otherwise, pivot_root(".", ".") is
+	// actually valid. What this results in is / being the new root but
+	// /proc/self/cwd being the old root. Since we can play around with the cwd
+	// with pivot_root this allows us to pivot without creating directories in
+	// the rootfs. Shout-outs to the LXC developers for giving us this idea.
+
+	fmt.Printf("omni : pivotRoot rootfs=%s\n", rootfs)
+	if err := unix.Mount(rootfs, rootfs, "bind", unix.MS_BIND|unix.MS_REC, ""); err != nil {
+		return fmt.Errorf("Mount rootfs to itself error: %v", err)
+	}
+
+	tmpDir := filepath.Join(rootfs, "/")
+	if err := os.MkdirAll(tmpDir, 0777); err != nil {
+		return fmt.Errorf("can't create tmp dir %s, error %v", tmpDir, err)
+	}
+	pivotDir, err := ioutil.TempDir(tmpDir, ".pivot_root")
+	if err != nil {
+		return fmt.Errorf("can't create pivot_root dir %s, error %v", pivotDir, err)
+	}
+	defer func() {
+		errVal := os.Remove(pivotDir)
+		if err == nil {
+			err = errVal
+		}
+	}()
+	fmt.Printf("omni : pivotRoot rootfs=%s pivotDir=%s\n", rootfs, pivotDir)
+	if err := unix.PivotRoot(rootfs, pivotDir); err != nil {
+		return fmt.Errorf("pivot_root %s", err)
+	}
+
+	//fmt.Printf("omni : pivotRoot 03\n")
+	if err := unix.Chdir("/"); err != nil {
+		return fmt.Errorf("chdir / %s", err)
+	}
+	// path to pivot dir now changed, update
+	pivotDir = filepath.Join("/", filepath.Base(pivotDir))
+
+	// Make pivotDir rprivate to make sure any of the unmounts don't
+	// propagate to parent.
+	if err := unix.Mount("", pivotDir, "", unix.MS_SLAVE|unix.MS_REC, ""); err != nil {
+		return err
+	}
+
+	if err := unix.Unmount(pivotDir, unix.MNT_DETACH); err != nil {
+		return fmt.Errorf("unmount pivot_root dir %s", err)
+	}
+	return nil
+}
+
+*/
 
 func msMoveRoot(rootfs string) error {
 	if err := unix.Mount(rootfs, "/", "", unix.MS_MOVE, ""); err != nil {
