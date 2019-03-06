@@ -3,7 +3,9 @@
 docker 运行在 android 系统上
 
 系统：android-7.1.1
+
 内核：3.10-nougat
+
 设备：nexus-9
 
 ## v1 namespace_ipc
@@ -319,6 +321,19 @@ func (l *LinuxFactory) StartInitialization() (err error) {
 	···
 }
 ```
+
+## s1
+
+libcontainer/specconv/example.go : 12
+
+```go
+/** omni
+{
+        Type: "ipc",
+},
+**/ 
+```
+
 
 ## v2 mqueue
 
@@ -646,6 +661,10 @@ flags=14, m=&{mqueue /dev/mqueue mqueue 14 []   0 [] []}
 
 ```
 
+## v2
+
+open config mqueue
+
 ## v3 pivotRoot
 
 ```
@@ -720,7 +739,53 @@ func pivotRoot(rootfs string) error {
 
 ```
 
+## s3
 
+android-kernel/kernel/tegra/fs : 2651
+
+```c
+
+ * Also, the current root cannot be on the 'rootfs' (initial ramfs) filesystem.
+ * See Documentation/filesystems/ramfs-rootfs-initramfs.txt for alternatives
+ * in this situation.
+
+```
+
+due to android rootfs initramfs, change to chroot
+
+
+## v4 devpts
+
+```
+container_linux.go:337: starting container process caused "process_linux.go:436: container init caused \"open /dev/ptmx: no such file or directory\""
+```
+
+## s4
+
+```
+DEVPTS_MULTIPLE_INSTANCES=Y
+Prompt: Support multiple instances of devpts  
+```
+
+## v5 
+
+```
+standard_init_linux.go:203: exec user process caused "exec format error"
+```
+
+## s5
+
+use busybox-arm rootfs as new root
+
+```bash
+wget https://busybox.net/downloads/binaries/1.21.1/busybox-armv7l
+adb shell rm -rf /data/test/runc/rootfs/bin/*
+adb push busybox-armv7l /data/test/runc/rootfs/bin busybox
+adb shell
+cd /data/test/runc/rootfs/bin/
+busybox --install . 
+
+```
 
 
 ## issue
@@ -731,4 +796,10 @@ libcontainer/configs/validate/validator.go : 135
 return fmt.Errorf("sysctl %q is not allowed in the hosts ipc namespace", s)
 ```
 
+```
+mount tmpfs /run
+```
 
+```
+config.json from example, edit ipc_namespace and root read only
+```
