@@ -141,9 +141,11 @@ func Example() *specs.Spec {
 				{
 					Type: "network",
 				},
+				/** omni
 				{
 					Type: "ipc",
 				},
+				**/ 
 				{
 					Type: "uts",
 				},
