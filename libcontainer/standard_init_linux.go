@@ -199,6 +199,9 @@ func (l *linuxStandardInit) Init() error {
 			return newSystemErrorWithCause(err, "init seccomp")
 		}
 	}
+	//printf exec path	
+	fmt.Printf("omni_0306_standard_init_linux:name=%+v, l.config.Args[0:]=%+v, os.Environ()=%+v\n", name, l.config.Args[0:], os.Environ())
+	
 	if err := syscall.Exec(name, l.config.Args[0:], os.Environ()); err != nil {
 		return newSystemErrorWithCause(err, "exec user process")
 	}
